@@ -4,38 +4,53 @@
 #include "uart_driver.hpp"
 #include "protocol_parser.hpp"
 #include "cyd_display.hpp"
+#include "cyd_touch.hpp"
+#include "cyd_ui.hpp"
 
 extern "C" void app_main(void)
 {
-    init_uart();
+    printf("Starting Stream Deck...\n");
 
+    init_uart();
     ProtocolParser parser;
     CydDisplay display;
+    CydTouch touch;
 
     display.init();
     display.fill_screen(CydDisplay::rgb565(0, 0, 0));
+    touch.init();
+
+    CydUI ui(display);
+    ui.draw_grid();
+
+    printf("System ready!\n");
 
     uint8_t received_byte;
+    uint16_t tx, ty;
 
     while (true) {
+
         if (get_byte(received_byte)) {
             if (parser.process_byte(received_byte)) {
                 if (parser.get_command() == 10) {
-
                     uint8_t* p = parser.get_payload();
+                    uint16_t target_color = CydDisplay::rgb565(p[1], p[2], p[3]);
 
-                    uint8_t r = p[0];
-                    uint8_t g = p[1];
-                    uint8_t b = p[2];
-
-                    uint16_t hw_color = CydDisplay::rgb565(r, g, b);
-                    display.fill_screen(hw_color);
-
-                    printf("Painted LCD with RGB(%d, %d, %d)\n", r, g, b);
+                    ui.set_button_color(p[0], target_color);
                 }
             }
         }
 
-        vTaskDelay(10 / portTICK_PERIOD_MS); 
+        if (touch.get_coordinates(tx, ty)) {
+            int pressed_btn = ui.get_button_from_touch(tx, ty);
+
+            if (pressed_btn != -1) {
+                printf("Button clicked: %d\n", pressed_btn);
+
+                vTaskDelay(200 / portTICK_PERIOD_MS);
+            }
+        }
+
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }

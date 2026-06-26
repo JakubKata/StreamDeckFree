@@ -103,3 +103,30 @@ void CydDisplay::fill_screen(uint16_t color) {
         spi_device_polling_transmit(spi_handle, &t);
     }
 }
+
+void CydDisplay::draw_filled_rectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color) {
+    
+    if (x >= 320 || y >= 240) return;
+
+    if ((x + w) > 320) w = 320 - x;
+    if ((y + h) > 240) h = 240 - y;
+
+    set_address_window(x, y, x + w - 1, y + h - 1);
+    
+    gpio_set_level((gpio_num_t)2, 1); 
+
+    uint8_t line_buffer[320 * 2]; 
+    for (int i = 0; i < w; i++) {
+        line_buffer[i * 2]     = color >> 8;
+        line_buffer[i * 2 + 1] = color & 0xFF;
+    }
+
+    for (int i = 0; i < h; i++) {
+        spi_transaction_t t;
+        memset(&t, 0, sizeof(t));
+        t.length = w * 2 * 8;
+        t.tx_buffer = line_buffer;
+        
+        spi_device_polling_transmit(spi_handle, &t);
+    }
+}
