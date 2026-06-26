@@ -11,7 +11,7 @@ private:
     int head;
     int tail;
     int data_count;
-    SemaphoreHandle_t mutex_lock; 
+    SemaphoreHandle_t mutex_lock;
 
 public:
     RingBuffer() {
@@ -41,10 +41,9 @@ public:
 
     bool pop(uint8_t &read_byte) {
         if (xSemaphoreTake(mutex_lock, pdMS_TO_TICKS(10)) == pdTRUE) {
-            
             if (data_count == 0) {
                 xSemaphoreGive(mutex_lock);
-                return false; 
+                return false;
             }
 
             read_byte = memory[tail];
