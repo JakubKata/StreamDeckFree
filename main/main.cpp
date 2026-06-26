@@ -3,33 +3,36 @@
 #include "freertos/task.h"
 #include "uart_driver.hpp"
 #include "protocol_parser.hpp"
+#include "cyd_display.hpp"
 
 extern "C" void app_main(void)
 {
-    printf("Starting Stream Deck system...\n");
-    printf("Waiting for binary frames (Start byte: 0x02)...\n");
-
     init_uart();
 
     ProtocolParser parser;
+    CydDisplay display;
+
+    display.init();
+    display.fill_screen(CydDisplay::rgb565(0, 0, 0));
+
     uint8_t received_byte;
 
     while (true) {
-
         if (get_byte(received_byte)) {
-
             if (parser.process_byte(received_byte)) {
+                if (parser.get_command() == 10) {
 
-                printf("\n--- COMMAND RECEIVED ---\n");
-                printf("Command ID: %d\n", parser.get_command());
-                printf("Payload Length: %d\n", parser.get_payload_length());
-                
-                printf("Data: ");
-                uint8_t* payload = parser.get_payload();
-                for(int i = 0; i < parser.get_payload_length(); i++) {
-                    printf("%02X ", payload[i]);
+                    uint8_t* p = parser.get_payload();
+
+                    uint8_t r = p[0];
+                    uint8_t g = p[1];
+                    uint8_t b = p[2];
+
+                    uint16_t hw_color = CydDisplay::rgb565(r, g, b);
+                    display.fill_screen(hw_color);
+
+                    printf("Painted LCD with RGB(%d, %d, %d)\n", r, g, b);
                 }
-                printf("\n------------------------\n");
             }
         }
 
