@@ -4,6 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <string.h>
+#include <stdio.h>
 
 #define PIN_MOSI 13
 #define PIN_CLK  14
@@ -129,4 +130,20 @@ void CydDisplay::draw_filled_rectangle(uint16_t x, uint16_t y, uint16_t w, uint1
         
         spi_device_polling_transmit(spi_handle, &t);
     }
+}
+
+void CydDisplay::draw_bitmap(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const uint16_t* data) {
+    if (x >= 320 || y >= 240) return;
+    if ((x + w) > 320) w = 320 - x;
+    if ((y + h) > 240) h = 240 - y;
+
+    set_address_window(x, y, x + w - 1, y + h - 1);
+    gpio_set_level((gpio_num_t)2, 1);
+
+    spi_transaction_t t;
+    memset(&t, 0, sizeof(t));
+    t.length = w * h * 16;
+    t.tx_buffer = data;
+    
+    spi_device_polling_transmit(spi_handle, &t);
 }

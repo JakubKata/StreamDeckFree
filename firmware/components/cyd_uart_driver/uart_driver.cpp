@@ -43,18 +43,20 @@ bool get_byte(uint8_t &byte_out) {
     return my_buffer.pop(byte_out);
 }
 
-void send_frame(uint8_t cmd, uint8_t* payload, uint8_t len) {
-    uint8_t frame_size = 3 + len;
-
+void send_frame(uint8_t cmd, uint8_t* payload, uint16_t len) {
+    
+    uint16_t frame_size = 4 + len;
+    
     uint8_t frame[128]; 
-
-    frame[0] = 0x02;
-    frame[1] = cmd;
-    frame[2] = len;
-
+    
+    frame[0] = 0x02; 
+    frame[1] = cmd;  
+    frame[2] = len & 0xFF;         
+    frame[3] = (len >> 8) & 0xFF;  
+    
     for(int i = 0; i < len; i++) {
-        frame[3 + i] = payload[i];
+        frame[4 + i] = payload[i];
     }
-
+    
     uart_write_bytes(UART_PORT, frame, frame_size);
 }
