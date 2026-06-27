@@ -3,16 +3,20 @@
   "WorkspaceRootPath": "C:\\Users\\USER\\source\\repos\\StreamDeckFree\\plugin\\StreamDeckFreePlugin\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{BB3440D0-7F49-43CF-87D2-695360444457}|StreamDeckFreePlugin\\StreamDeckFreePlugin.csproj|c:\\users\\user\\source\\repos\\streamdeckfree\\plugin\\streamdeckfreeplugin\\streamdeckfreeplugin\\streamdeckfreeplugin.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
-      "RelativeMoniker": "D:0:0:{BB3440D0-7F49-43CF-87D2-695360444457}|StreamDeckFreePlugin\\StreamDeckFreePlugin.csproj|solutionrelative:streamdeckfreeplugin\\streamdeckfreeplugin.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+      "AbsoluteMoniker": "D:0:0:{5B425573-9978-A4FE-E92A-E0272ED9E0C8}|StreamDeckFreePlugin\\StreamDeckFreePlugin.csproj|c:\\users\\user\\source\\repos\\streamdeckfree\\plugin\\streamdeckfreeplugin\\streamdeckfreeplugin\\streamdeckfreeplugin.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{5B425573-9978-A4FE-E92A-E0272ED9E0C8}|StreamDeckFreePlugin\\StreamDeckFreePlugin.csproj|solutionrelative:streamdeckfreeplugin\\streamdeckfreeplugin.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{BB3440D0-7F49-43CF-87D2-695360444457}|StreamDeckFreePlugin\\StreamDeckFreePlugin.csproj|c:\\users\\user\\source\\repos\\streamdeckfree\\plugin\\streamdeckfreeplugin\\streamdeckfreeplugin\\extensionmanifest.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
-      "RelativeMoniker": "D:0:0:{BB3440D0-7F49-43CF-87D2-695360444457}|StreamDeckFreePlugin\\StreamDeckFreePlugin.csproj|solutionrelative:streamdeckfreeplugin\\extensionmanifest.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+      "AbsoluteMoniker": "D:0:0:{5B425573-9978-A4FE-E92A-E0272ED9E0C8}|StreamDeckFreePlugin\\StreamDeckFreePlugin.csproj|c:\\users\\user\\source\\repos\\streamdeckfree\\plugin\\streamdeckfreeplugin\\streamdeckfreeplugin\\streamdeckfreeplugin.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{5B425573-9978-A4FE-E92A-E0272ED9E0C8}|StreamDeckFreePlugin\\StreamDeckFreePlugin.csproj|solutionrelative:streamdeckfreeplugin\\streamdeckfreeplugin.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{BB3440D0-7F49-43CF-87D2-695360444457}|StreamDeckFreePlugin\\StreamDeckFreePlugin.csproj|c:\\users\\user\\source\\repos\\streamdeckfree\\plugin\\streamdeckfreeplugin\\streamdeckfreeplugin\\imageencoder.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{BB3440D0-7F49-43CF-87D2-695360444457}|StreamDeckFreePlugin\\StreamDeckFreePlugin.csproj|solutionrelative:streamdeckfreeplugin\\imageencoder.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{5B425573-9978-A4FE-E92A-E0272ED9E0C8}|StreamDeckFreePlugin\\StreamDeckFreePlugin.csproj|c:\\users\\user\\source\\repos\\streamdeckfree\\plugin\\streamdeckfreeplugin\\streamdeckfreeplugin\\extensionmanifest.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{5B425573-9978-A4FE-E92A-E0272ED9E0C8}|StreamDeckFreePlugin\\StreamDeckFreePlugin.csproj|solutionrelative:streamdeckfreeplugin\\extensionmanifest.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{5B425573-9978-A4FE-E92A-E0272ED9E0C8}|StreamDeckFreePlugin\\StreamDeckFreePlugin.csproj|c:\\users\\user\\source\\repos\\streamdeckfree\\plugin\\streamdeckfreeplugin\\streamdeckfreeplugin\\imageencoder.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{5B425573-9978-A4FE-E92A-E0272ED9E0C8}|StreamDeckFreePlugin\\StreamDeckFreePlugin.csproj|solutionrelative:streamdeckfreeplugin\\imageencoder.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -27,19 +31,32 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "StreamDeckFreePlugin",
+              "Title": "StreamDeckFreePlugin.cs",
+              "DocumentMoniker": "C:\\Users\\USER\\source\\repos\\StreamDeckFree\\plugin\\StreamDeckFreePlugin\\StreamDeckFreePlugin\\StreamDeckFreePlugin.cs",
+              "RelativeDocumentMoniker": "StreamDeckFreePlugin\\StreamDeckFreePlugin.cs",
+              "ToolTip": "C:\\Users\\USER\\source\\repos\\StreamDeckFree\\plugin\\StreamDeckFreePlugin\\StreamDeckFreePlugin\\StreamDeckFreePlugin.cs",
+              "RelativeToolTip": "StreamDeckFreePlugin\\StreamDeckFreePlugin.cs",
+              "ViewState": "AgIAADwBAAAAAAAAAAAUwGwBAAAJAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-06-27T20:31:17.768Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "StreamDeckFreePlugin.csproj",
               "DocumentMoniker": "C:\\Users\\USER\\source\\repos\\StreamDeckFree\\plugin\\StreamDeckFreePlugin\\StreamDeckFreePlugin\\StreamDeckFreePlugin.csproj",
               "RelativeDocumentMoniker": "StreamDeckFreePlugin\\StreamDeckFreePlugin.csproj",
               "ToolTip": "C:\\Users\\USER\\source\\repos\\StreamDeckFree\\plugin\\StreamDeckFreePlugin\\StreamDeckFreePlugin\\StreamDeckFreePlugin.csproj",
               "RelativeToolTip": "StreamDeckFreePlugin\\StreamDeckFreePlugin.csproj",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAcAAAABAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABYAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
               "WhenOpened": "2026-06-27T12:30:19.8Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "ExtensionManifest.json",
               "DocumentMoniker": "C:\\Users\\USER\\source\\repos\\StreamDeckFree\\plugin\\StreamDeckFreePlugin\\StreamDeckFreePlugin\\ExtensionManifest.json",
               "RelativeDocumentMoniker": "StreamDeckFreePlugin\\ExtensionManifest.json",
@@ -47,12 +64,11 @@
               "RelativeToolTip": "StreamDeckFreePlugin\\ExtensionManifest.json",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
-              "WhenOpened": "2026-06-27T10:58:07.341Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-27T10:58:07.341Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 3,
               "Title": "ImageEncoder.cs",
               "DocumentMoniker": "C:\\Users\\USER\\source\\repos\\StreamDeckFree\\plugin\\StreamDeckFreePlugin\\StreamDeckFreePlugin\\ImageEncoder.cs",
               "RelativeDocumentMoniker": "StreamDeckFreePlugin\\ImageEncoder.cs",
@@ -60,8 +76,7 @@
               "RelativeToolTip": "StreamDeckFreePlugin\\ImageEncoder.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAQAAAApAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-06-27T10:40:33.89Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-27T10:40:33.89Z"
             }
           ]
         }

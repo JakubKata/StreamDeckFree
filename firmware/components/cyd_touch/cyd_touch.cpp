@@ -1,15 +1,32 @@
 #include "cyd_touch.hpp"
+
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <string.h>
+#include <stdio.h>
 
 #define TOUCH_CS   33
 #define TOUCH_CLK  25
 #define TOUCH_MOSI 32
 #define TOUCH_MISO 39
 #define TOUCH_IRQ  36
+
+// Typical Cheap Yellow Display / XPT2046 values.
+// If touches are mirrored or swapped, change only these defines.
+#define TOUCH_RAW_X_MIN 300
+#define TOUCH_RAW_X_MAX 3800
+#define TOUCH_RAW_Y_MIN 300
+#define TOUCH_RAW_Y_MAX 3800
+
+// Landscape CYD usually needs swapped axes and inverted Y.
+#define TOUCH_SWAP_XY  1
+#define TOUCH_INVERT_X 0
+#define TOUCH_INVERT_Y 1
+
+// Set to 1 to print raw/calibrated touch coordinates in ESP-IDF monitor.
+#define TOUCH_DEBUG 0
 
 static spi_device_handle_t touch_spi;
 
@@ -54,24 +71,70 @@ uint16_t CydTouch::read_spi(uint8_t cmd) {
     return ((rx_data[1] << 8) | rx_data[2]) >> 3;
 }
 
+int32_t CydTouch::map_clamped(int32_t v, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max) {
+    if (in_min == in_max) return out_min;
+
+    int32_t result = (v - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+
+    if (out_min < out_max) {
+        if (result < out_min) result = out_min;
+        if (result > out_max) result = out_max;
+    } else {
+        if (result < out_max) result = out_max;
+        if (result > out_min) result = out_min;
+    }
+
+    return result;
+}
+
 bool CydTouch::get_coordinates(uint16_t &x, uint16_t &y) {
-    if (!is_touched()) return false;
+    if (!is_touched()) {
+        return false;
+    }
 
-    uint16_t raw_x = read_spi(0xD0);
-    uint16_t raw_y = read_spi(0x90);
+    // Average a few samples. This removes false transitions between buttons.
+    uint32_t sum_raw_x = 0;
+    uint32_t sum_raw_y = 0;
+    const uint8_t samples = 4;
 
-    if (!is_touched()) return false;
+    for (uint8_t i = 0; i < samples; i++) {
+        if (!is_touched()) {
+            return false;
+        }
 
-    int32_t cal_x = (raw_x - 300) * 320 / (3800 - 300);
-    int32_t cal_y = (raw_y - 300) * 240 / (3800 - 300);
+        sum_raw_x += read_spi(0xD0); // X position command
+        sum_raw_y += read_spi(0x90); // Y position command
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
 
-    if (cal_x < 0) cal_x = 0;
-    if (cal_x > 320) cal_x = 320;
-    if (cal_y < 0) cal_y = 0;
-    if (cal_y > 240) cal_y = 240;
+    uint16_t raw_x = sum_raw_x / samples;
+    uint16_t raw_y = sum_raw_y / samples;
+
+#if TOUCH_SWAP_XY
+    int32_t mapped_source_x = raw_y;
+    int32_t mapped_source_y = raw_x;
+#else
+    int32_t mapped_source_x = raw_x;
+    int32_t mapped_source_y = raw_y;
+#endif
+
+#if TOUCH_INVERT_X
+    int32_t cal_x = map_clamped(mapped_source_x, TOUCH_RAW_X_MAX, TOUCH_RAW_X_MIN, 0, 319);
+#else
+    int32_t cal_x = map_clamped(mapped_source_x, TOUCH_RAW_X_MIN, TOUCH_RAW_X_MAX, 0, 319);
+#endif
+
+#if TOUCH_INVERT_Y
+    int32_t cal_y = map_clamped(mapped_source_y, TOUCH_RAW_Y_MAX, TOUCH_RAW_Y_MIN, 0, 239);
+#else
+    int32_t cal_y = map_clamped(mapped_source_y, TOUCH_RAW_Y_MIN, TOUCH_RAW_Y_MAX, 0, 239);
+#endif
+
+#if TOUCH_DEBUG
+    printf("TOUCH raw=(%u,%u) cal=(%ld,%ld)\n", raw_x, raw_y, (long)cal_x, (long)cal_y);
+#endif
 
     x = (uint16_t)cal_x;
     y = (uint16_t)cal_y;
-
     return true;
 }
