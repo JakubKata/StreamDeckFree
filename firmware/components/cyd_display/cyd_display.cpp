@@ -4,13 +4,12 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <string.h>
-#include <stdio.h>
 
 #define PIN_MOSI 13
 #define PIN_CLK  14
 #define PIN_CS   15
 #define PIN_DC   2
-#define PIN_BL   21  
+#define PIN_BL   21
 
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 240
@@ -38,7 +37,7 @@ void CydDisplay::send_data(uint8_t data) {
 void CydDisplay::init() {
     gpio_set_direction((gpio_num_t)PIN_DC, GPIO_MODE_OUTPUT);
     gpio_set_direction((gpio_num_t)PIN_BL, GPIO_MODE_OUTPUT);
-    gpio_set_level((gpio_num_t)PIN_BL, 1); 
+    gpio_set_level((gpio_num_t)PIN_BL, 1);
 
     spi_bus_config_t buscfg = {};
     buscfg.miso_io_num = -1;
@@ -76,19 +75,23 @@ void CydDisplay::init() {
 
 void CydDisplay::set_address_window(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1) {
     send_command(0x2A);
-    send_data(x0 >> 8); send_data(x0 & 0xFF);
-    send_data(x1 >> 8); send_data(x1 & 0xFF);
+    send_data(x0 >> 8);
+    send_data(x0 & 0xFF);
+    send_data(x1 >> 8);
+    send_data(x1 & 0xFF);
 
     send_command(0x2B);
-    send_data(y0 >> 8); send_data(y0 & 0xFF);
-    send_data(y1 >> 8); send_data(y1 & 0xFF);
+    send_data(y0 >> 8);
+    send_data(y0 & 0xFF);
+    send_data(y1 >> 8);
+    send_data(y1 & 0xFF);
 
     send_command(0x2C);
 }
 
 void CydDisplay::fill_screen(uint16_t color) {
     set_address_window(0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1);
-    gpio_set_level((gpio_num_t)PIN_DC, 1); 
+    gpio_set_level((gpio_num_t)PIN_DC, 1);
 
     uint8_t line_buffer[SCREEN_WIDTH * 2];
     for (int i = 0; i < SCREEN_WIDTH; i++) {
@@ -106,17 +109,15 @@ void CydDisplay::fill_screen(uint16_t color) {
 }
 
 void CydDisplay::draw_filled_rectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color) {
-    
-    if (x >= 320 || y >= 240) return;
+    if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
 
-    if ((x + w) > 320) w = 320 - x;
-    if ((y + h) > 240) h = 240 - y;
+    if ((x + w) > SCREEN_WIDTH) w = SCREEN_WIDTH - x;
+    if ((y + h) > SCREEN_HEIGHT) h = SCREEN_HEIGHT - y;
 
     set_address_window(x, y, x + w - 1, y + h - 1);
-    
-    gpio_set_level((gpio_num_t)2, 1); 
+    gpio_set_level((gpio_num_t)PIN_DC, 1);
 
-    uint8_t line_buffer[320 * 2]; 
+    uint8_t line_buffer[SCREEN_WIDTH * 2];
     for (int i = 0; i < w; i++) {
         line_buffer[i * 2]     = color >> 8;
         line_buffer[i * 2 + 1] = color & 0xFF;
@@ -127,23 +128,21 @@ void CydDisplay::draw_filled_rectangle(uint16_t x, uint16_t y, uint16_t w, uint1
         memset(&t, 0, sizeof(t));
         t.length = w * 2 * 8;
         t.tx_buffer = line_buffer;
-        
         spi_device_polling_transmit(spi_handle, &t);
     }
 }
 
 void CydDisplay::draw_bitmap(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const uint16_t* data) {
-    if (x >= 320 || y >= 240) return;
-    if ((x + w) > 320) w = 320 - x;
-    if ((y + h) > 240) h = 240 - y;
+    if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
+    if ((x + w) > SCREEN_WIDTH) w = SCREEN_WIDTH - x;
+    if ((y + h) > SCREEN_HEIGHT) h = SCREEN_HEIGHT - y;
 
     set_address_window(x, y, x + w - 1, y + h - 1);
-    gpio_set_level((gpio_num_t)2, 1);
+    gpio_set_level((gpio_num_t)PIN_DC, 1);
 
     spi_transaction_t t;
     memset(&t, 0, sizeof(t));
     t.length = w * h * 16;
     t.tx_buffer = data;
-    
     spi_device_polling_transmit(spi_handle, &t);
 }

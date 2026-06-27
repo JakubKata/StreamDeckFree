@@ -21,19 +21,18 @@ bool ProtocolParser::process_byte(uint8_t byte) {
             break;
 
         case WAIT_FOR_LEN_L:
-            payload_length = byte; 
+            payload_length = byte;
             current_state = WAIT_FOR_LEN_H;
             break;
 
         case WAIT_FOR_LEN_H:
-            
-            payload_length |= (byte << 8); 
-            
+            payload_length |= (byte << 8);
+
             if (payload_length > sizeof(buffer)) {
-                current_state = WAIT_FOR_START; 
+                current_state = WAIT_FOR_START;
             } else if (payload_length == 0) {
                 current_state = WAIT_FOR_START;
-                return true; 
+                return true;
             } else {
                 bytes_read = 0;
                 current_state = READ_PAYLOAD;
@@ -44,7 +43,7 @@ bool ProtocolParser::process_byte(uint8_t byte) {
             buffer[bytes_read++] = byte;
             if (bytes_read >= payload_length) {
                 current_state = WAIT_FOR_START;
-                return true; 
+                return true;
             }
             break;
     }

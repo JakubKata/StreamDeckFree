@@ -9,7 +9,8 @@
 static RingBuffer my_buffer;
 
 static void uart_rx_task(void *parameter) {
-    uint8_t temp_array[128]; 
+    (void)parameter;
+    uint8_t temp_array[128];
 
     while (true) {
         int bytes_received = uart_read_bytes(UART_PORT, temp_array, sizeof(temp_array), pdMS_TO_TICKS(20));
@@ -43,20 +44,19 @@ bool get_byte(uint8_t &byte_out) {
     return my_buffer.pop(byte_out);
 }
 
-void send_frame(uint8_t cmd, uint8_t* payload, uint16_t len) {
-    
+void send_frame(uint8_t cmd, const uint8_t* payload, uint16_t len) {
     uint16_t frame_size = 4 + len;
-    
-    uint8_t frame[128]; 
-    
-    frame[0] = 0x02; 
-    frame[1] = cmd;  
-    frame[2] = len & 0xFF;         
-    frame[3] = (len >> 8) & 0xFF;  
-    
+
+    uint8_t frame[128];
+
+    frame[0] = 0x02;
+    frame[1] = cmd;
+    frame[2] = len & 0xFF;
+    frame[3] = (len >> 8) & 0xFF;
+
     for(int i = 0; i < len; i++) {
         frame[4 + i] = payload[i];
     }
-    
+
     uart_write_bytes(UART_PORT, frame, frame_size);
 }
