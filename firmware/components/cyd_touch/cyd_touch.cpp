@@ -13,19 +13,15 @@
 #define TOUCH_MISO 39
 #define TOUCH_IRQ  36
 
-// Typical Cheap Yellow Display / XPT2046 values.
-// If touches are mirrored or swapped, change only these defines.
 #define TOUCH_RAW_X_MIN 300
 #define TOUCH_RAW_X_MAX 3800
 #define TOUCH_RAW_Y_MIN 300
 #define TOUCH_RAW_Y_MAX 3800
 
-// Landscape CYD usually needs swapped axes and inverted Y.
 #define TOUCH_SWAP_XY  1
 #define TOUCH_INVERT_X 0
 #define TOUCH_INVERT_Y 1
 
-// Set to 1 to print raw/calibrated touch coordinates in ESP-IDF monitor.
 #define TOUCH_DEBUG 0
 
 static spi_device_handle_t touch_spi;
@@ -92,7 +88,6 @@ bool CydTouch::get_coordinates(uint16_t &x, uint16_t &y) {
         return false;
     }
 
-    // Average a few samples. This removes false transitions between buttons.
     uint32_t sum_raw_x = 0;
     uint32_t sum_raw_y = 0;
     const uint8_t samples = 4;
@@ -102,8 +97,8 @@ bool CydTouch::get_coordinates(uint16_t &x, uint16_t &y) {
             return false;
         }
 
-        sum_raw_x += read_spi(0xD0); // X position command
-        sum_raw_y += read_spi(0x90); // Y position command
+        sum_raw_x += read_spi(0xD0);
+        sum_raw_y += read_spi(0x90);
         vTaskDelay(pdMS_TO_TICKS(1));
     }
 

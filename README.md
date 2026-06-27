@@ -17,15 +17,15 @@ The project uses fast two-way USB serial communication between Windows and the E
 
 The project consists of two main parts:
 
-- `firmware` â C++ firmware for ESP32, built with ESP-IDF,
-- `plugin` â C# .NET plugin for the Macro Deck application.
+- `firmware` - C++ firmware for ESP32, built with ESP-IDF,
+- `plugin` - C# .NET plugin for the Macro Deck application.
 
 ---
 
 ## Features
 
 - Turns an ESP32 CYD board into a physical Macro Deck touch panel
-- Fixed **2 rows Ă 3 columns** layout optimized for 320Ă240 displays
+- Fixed **2 rows x 3 columns** layout optimized for 320x240 displays
 - Mirrors the first six buttons from the active Macro Deck profile or folder
 - Supports touch input from the ESP32 screen
 - Triggers Macro Deck actions from hardware touch events
@@ -53,7 +53,7 @@ Recommended board:
 
 - ESP32 Cheap Yellow Display / CYD
 - 2.8 inch TFT display
-- 320Ă240 resolution
+- 320x240 resolution
 - Resistive touch panel
 - USB-UART chip, for example CH340 or CP210x
 
@@ -145,7 +145,7 @@ to the Macro Deck plugin directory:
 
 1. Connect the ESP32 CYD board to your PC.
 2. Open **Macro Deck**.
-3. Go to **Plugins** â **Installed**.
+3. Go to **Plugins** -> **Installed**.
 4. Open the settings for **StreamDeckFree**.
 5. Select the COM port assigned to the ESP32 board.
 6. Save the configuration.
@@ -202,33 +202,29 @@ If your USB cable, board, or driver is unstable at `921600`, you can lower the b
 ## Project Structure
 
 ```text
-STREAMDECKFREE/
-âââ firmware/
-â   âââ components/
-â   â   âââ cyd_display/
-â   â   âââ cyd_jpeg/
-â   â   âââ cyd_touch/
-â   â   âââ cyd_uart_driver/
-â   â   âââ cyd_ui/
-â   â   âââ protocol_parser/
-â   âââ main/
-â   â   âââ CMakeLists.txt
-â   â   âââ main.cpp
-â   âââ CMakeLists.txt
-â   âââ partitions.csv
-â   âââ sdkconfig
-â
-âââ plugin/
-â   âââ StreamDeckFreePlugin/
-â       âââ ConfigWindow.cs
-â       âââ CydDevice.cs
-â       âââ ExtensionManifest.json
-â       âââ ImageEncoder.cs
-â       âââ StreamDeckFreePlugin.cs
-â       âââ StreamDeckFreePlugin.csproj
-â
-âââ .gitignore
-âââ README.md
+StreamDeckFree/
+|-- firmware/
+|   |-- components/
+|   |   |-- cyd_display/
+|   |   |-- cyd_touch/
+|   |   |-- cyd_uart_driver/
+|   |   |-- cyd_ui/
+|   |   `-- protocol_parser/
+|   |-- main/
+|   |   |-- CMakeLists.txt
+|   |   `-- main.cpp
+|   |-- CMakeLists.txt
+|   |-- partitions.csv
+|   `-- sdkconfig
+|
+`-- plugin/
+    `-- StreamDeckFreePlugin/
+        |-- ConfigWindow.cs
+        |-- CydDevice.cs
+        |-- ExtensionManifest.json
+        |-- ImageEncoder.cs
+        |-- StreamDeckFreePlugin.cs
+        `-- StreamDeckFreePlugin.csproj
 ```
 
 ---
@@ -329,7 +325,6 @@ The project is designed to be simple, cheap, and hackable.
 
 Possible future improvements:
 
-- better JPEG transport,
 - faster partial screen updates,
 - configurable grid size,
 - automatic COM port detection,

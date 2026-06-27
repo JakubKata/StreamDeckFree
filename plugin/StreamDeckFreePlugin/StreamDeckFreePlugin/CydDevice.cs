@@ -31,7 +31,6 @@ namespace StreamDeckFree
         private const byte CmdAck = 6;
         private const byte CmdSetColor = 10;
         private const byte CmdTouchEvent = 20;
-        private const byte CmdDrawJpeg = 30;
         private const byte CmdSetGrid = 31;
         private const byte CmdDrawRgb565Raw = 32;
 
@@ -96,7 +95,6 @@ namespace StreamDeckFree
             }
             catch
             {
-                // ignored
             }
         }
 
@@ -134,9 +132,6 @@ namespace StreamDeckFree
 
         private bool SendRgb565ImageInChunks(byte buttonId, int width, int height, byte[] rgb565Bytes, int timeoutMsPerChunk)
         {
-            // Payload header for firmware command 32 is 9 bytes. v5 uses the largest safe chunk
-            // allowed by the protocol. With the fixed 3x2 grid, this is usually about
-            // 38-39 display rows per frame, so each tile needs only 3 UART frames.
             int maxRowsByPayload = Math.Max(1, (MaxFirmwarePayload - 9) / Math.Max(1, width * 2));
             int rowsPerChunk = Math.Max(1, maxRowsByPayload);
 
@@ -154,10 +149,10 @@ namespace StreamDeckFree
 
                 byte[] payload = new byte[payloadLength];
                 payload[0] = buttonId;
-                WriteU16Le(payload, 1, 0);           // x offset inside button
-                WriteU16Le(payload, 3, y);           // y offset inside button
-                WriteU16Le(payload, 5, width);       // chunk width
-                WriteU16Le(payload, 7, chunkHeight); // chunk height
+                WriteU16Le(payload, 1, 0);
+                WriteU16Le(payload, 3, y);
+                WriteU16Le(payload, 5, width);
+                WriteU16Le(payload, 7, chunkHeight);
 
                 int sourceOffset = y * width * 2;
                 Buffer.BlockCopy(rgb565Bytes, sourceOffset, payload, 9, pixelBytes);
@@ -168,8 +163,6 @@ namespace StreamDeckFree
                     MacroDeckLogger.Warning(_pluginInstance, $"Failed to send RGB565 chunk: button={buttonId}, y={y}, h={chunkHeight}");
                     return false;
                 }
-
-                // The ACK provides flow control, so no extra delay is needed here.
             }
 
             return true;
@@ -180,31 +173,6 @@ namespace StreamDeckFree
             ushort v = (ushort)value;
             buffer[offset] = (byte)(v & 0xFF);
             buffer[offset + 1] = (byte)((v >> 8) & 0xFF);
-        }
-
-        // Kept only for manual legacy tests. The v5 plugin uses RGB565, not JPEG.
-        public Task<bool> SendJpegAsync(byte buttonId, byte[] jpegBytes, int timeoutMs = 6000)
-        {
-            if (jpegBytes == null || jpegBytes.Length == 0)
-            {
-                return Task.FromResult(false);
-            }
-
-            int payloadLength = 1 + jpegBytes.Length;
-            if (payloadLength > MaxFirmwarePayload)
-            {
-                MacroDeckLogger.Warning(
-                    _pluginInstance,
-                    $"JPEG for button {buttonId} is too large: payload={payloadLength} bytes, max={MaxFirmwarePayload} bytes"
-                );
-                return Task.FromResult(false);
-            }
-
-            byte[] payload = new byte[payloadLength];
-            payload[0] = buttonId;
-            Buffer.BlockCopy(jpegBytes, 0, payload, 1, jpegBytes.Length);
-
-            return Task.Run(() => SendFrameAndWaitForAck(CmdDrawJpeg, payload, buttonId, timeoutMs));
         }
 
         private bool SendFrameAndWaitForAck(byte command, byte[] payload, byte expectedButton, int timeoutMs)
@@ -548,7 +516,6 @@ namespace StreamDeckFree
                 ThrowLastWin32("SetCommTimeouts", _portName);
             }
 
-            // Keep ESP32 out of bootloader mode. Ignore errors because some USB-UART drivers do not support both lines.
             EscapeCommFunction(_handle, ClrDtr);
             EscapeCommFunction(_handle, ClrRts);
 

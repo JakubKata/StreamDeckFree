@@ -74,14 +74,6 @@ bool get_byte(uint8_t &byte_out) {
     return my_buffer.pop(byte_out);
 }
 
-int get_rx_buffer_count() {
-    return my_buffer.count();
-}
-
-uint32_t get_rx_dropped_count() {
-    return my_buffer.dropped();
-}
-
 void send_frame(uint8_t cmd, const uint8_t* payload, uint16_t len) {
     uint8_t header[4];
     header[0] = 0x02;

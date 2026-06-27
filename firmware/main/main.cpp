@@ -11,12 +11,10 @@
 #include "cyd_touch.hpp"
 #include "cyd_ui.hpp"
 
-// Commands PC -> ESP32
 static const uint8_t CMD_SET_COLOR       = 10;
 static const uint8_t CMD_SET_GRID        = 31;
-static const uint8_t CMD_DRAW_RGB565_RAW = 32; // reliable RAW RGB565 chunks, no JPEG decoder
+static const uint8_t CMD_DRAW_RGB565_RAW = 32;
 
-// Commands ESP32 -> PC
 static const uint8_t CMD_ACK         = 6;
 static const uint8_t CMD_TOUCH_EVENT = 20;
 
@@ -25,13 +23,11 @@ static uint16_t read_u16_le(const uint8_t* p) {
 }
 
 static void send_ack(uint8_t acked_cmd, uint8_t button_id, uint8_t status) {
-    // status: 0 = OK, 1 = draw error, 2 = invalid payload/button
     uint8_t payload[3] = { acked_cmd, button_id, status };
     send_frame(CMD_ACK, payload, sizeof(payload));
 }
 
 static void send_touch_event(uint8_t button_id, uint8_t event_type) {
-    // event_type: 1 = press/down, 0 = release/up
     uint8_t payload[2] = { button_id, event_type };
     send_frame(CMD_TOUCH_EVENT, payload, sizeof(payload));
 }
@@ -65,7 +61,6 @@ extern "C" void app_main(void) {
     const TickType_t touch_stable_ticks = pdMS_TO_TICKS(35);
 
     while (true) {
-        // Drain all available UART bytes. Handling only one byte per tick drops image frames.
         while (get_byte(received_byte)) {
             if (!parser.process_byte(received_byte)) {
                 continue;
@@ -97,13 +92,6 @@ extern "C" void app_main(void) {
                     send_ack(cmd, 0xFF, 2);
                 }
             } else if (cmd == CMD_DRAW_RGB565_RAW) {
-                // Payload:
-                // [0]    button_id
-                // [1..2] x offset inside button, little endian
-                // [3..4] y offset inside button, little endian
-                // [5..6] chunk width, little endian
-                // [7..8] chunk height, little endian
-                // [9..]  RGB565 pixels, high byte first, low byte second
                 if (len < 9) {
                     printf("Invalid RAW payload length: %u\n", len);
                     send_ack(cmd, 0xFF, 2);

@@ -5,7 +5,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
-// v5 uses high-speed RAW RGB565 chunks. 32 KiB gives the UART task enough headroom.
 #define BUFFER_SIZE 32768
 
 class RingBuffer {

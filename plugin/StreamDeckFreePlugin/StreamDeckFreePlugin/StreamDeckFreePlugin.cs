@@ -22,7 +22,6 @@ namespace StreamDeckFree
         private const int GridGapX = 3;
         private const int GridGapY = 3;
 
-        // CYD has a small 320x240 LCD. A fixed 3x2 grid is much faster and clearer than mirroring 5x3.
         private const int DeviceColumns = 3;
         private const int DeviceRows = 2;
         private const int LongPressMs = 750;
@@ -107,7 +106,6 @@ namespace StreamDeckFree
                     }
                     catch (TaskCanceledException)
                     {
-                        // Debounced by a newer refresh request.
                     }
                     catch (Exception ex)
                     {
@@ -163,7 +161,6 @@ namespace StreamDeckFree
 
                 lock (_sync)
                 {
-                    // SET_GRID clears the LCD, so all visible frames must be resent.
                     _sentFrameHashes.Clear();
                 }
 
@@ -180,7 +177,6 @@ namespace StreamDeckFree
 
                         if (button == null)
                         {
-                            // SET_GRID already drew the empty grey tile. Do not waste UART bandwidth.
                             continue;
                         }
 
@@ -270,7 +266,6 @@ namespace StreamDeckFree
 
         private void HandleAnyLabelChanged(object sender, EventArgs e)
         {
-            // Label event sender does not reliably identify the owning ActionButton in all Macro Deck versions.
             ScheduleFullRefresh(150);
         }
 
@@ -305,7 +300,6 @@ namespace StreamDeckFree
                 }
                 catch (TaskCanceledException)
                 {
-                    // Debounced by a newer refresh request.
                 }
                 catch (Exception ex)
                 {
@@ -474,7 +468,7 @@ namespace StreamDeckFree
             MacroDeckLogger.Info(this, $"CYD press: deviceId={deviceId}, MacroDeck=({button.Position_X},{button.Position_Y})");
 
             CancellationTokenSource longPressCts = new CancellationTokenSource();
-            PressInfo pressInfo = new PressInfo(button, DateTime.UtcNow, longPressCts);
+            PressInfo pressInfo = new PressInfo(button, longPressCts);
 
             lock (_sync)
             {
@@ -519,7 +513,6 @@ namespace StreamDeckFree
                 }
                 catch (TaskCanceledException)
                 {
-                    // Normal release before long press threshold.
                 }
                 catch (Exception ex)
                 {
@@ -566,7 +559,6 @@ namespace StreamDeckFree
             }
             else
             {
-                // Delayed and hash-cached fallback visual update. This prevents floods during repeated tapping.
                 ScheduleSingleButtonRefresh(button, 300);
             }
 
@@ -675,14 +667,12 @@ namespace StreamDeckFree
         private sealed class PressInfo
         {
             public MacroButton Button { get; }
-            public DateTime StartedUtc { get; }
             public CancellationTokenSource Cancellation { get; }
             public bool LongPressTriggered { get; set; }
 
-            public PressInfo(MacroButton button, DateTime startedUtc, CancellationTokenSource cancellation)
+            public PressInfo(MacroButton button, CancellationTokenSource cancellation)
             {
                 Button = button;
-                StartedUtc = startedUtc;
                 Cancellation = cancellation;
             }
         }

@@ -59,15 +59,15 @@ void CydDisplay::init() {
 
     spi_bus_add_device(SPI2_HOST, &devcfg, &spi_handle);
 
-    send_command(0x01); // software reset
+    send_command(0x01);
     vTaskDelay(pdMS_TO_TICKS(150));
-    send_command(0x11); // sleep out
+    send_command(0x11);
     vTaskDelay(pdMS_TO_TICKS(150));
-    send_command(0x3A); // pixel format
-    send_data(0x55);    // 16-bit RGB565
-    send_command(0x36); // memory access control
-    send_data(0x28);    // original CYD landscape orientation
-    send_command(0x29); // display on
+    send_command(0x3A);
+    send_data(0x55);
+    send_command(0x36);
+    send_data(0x60);
+    send_command(0x29);
     vTaskDelay(pdMS_TO_TICKS(100));
 }
 
@@ -129,21 +129,6 @@ void CydDisplay::draw_filled_rectangle(uint16_t x, uint16_t y, uint16_t w, uint1
     }
 }
 
-void CydDisplay::draw_bitmap(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const uint16_t* data) {
-    if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT || w == 0 || h == 0 || data == nullptr) return;
-    if ((x + w) > SCREEN_WIDTH) w = SCREEN_WIDTH - x;
-    if ((y + h) > SCREEN_HEIGHT) h = SCREEN_HEIGHT - y;
-
-    set_address_window(x, y, x + w - 1, y + h - 1);
-    gpio_set_level((gpio_num_t)PIN_DC, 1);
-
-    spi_transaction_t t;
-    memset(&t, 0, sizeof(t));
-    t.length = w * h * 16;
-    t.tx_buffer = data;
-    spi_device_polling_transmit(spi_handle, &t);
-}
-
 bool CydDisplay::draw_rgb565be(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const uint8_t* data, size_t len) {
     if (data == nullptr || w == 0 || h == 0) return false;
     if (len < (size_t)w * (size_t)h * 2u) return false;
@@ -160,8 +145,6 @@ bool CydDisplay::draw_rgb565be(uint16_t x, uint16_t y, uint16_t w, uint16_t h, c
     set_address_window(x, y, x + draw_w - 1, y + draw_h - 1);
     gpio_set_level((gpio_num_t)PIN_DC, 1);
 
-    // Copy each line into a local aligned buffer before SPI DMA transfer.
-    // The source pointer is inside the UART parser buffer and may not be DMA-aligned.
     uint8_t line_buffer[SCREEN_WIDTH * 2];
 
     for (uint16_t row = 0; row < draw_h; row++) {

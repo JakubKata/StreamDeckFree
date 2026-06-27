@@ -9,7 +9,6 @@ using SuchByte.MacroDeck.CottleIntegration;
 using MacroButton = SuchByte.MacroDeck.ActionButton.ActionButton;
 using DrawingColor = System.Drawing.Color;
 using DrawingImage = System.Drawing.Image;
-using DrawingEncoder = System.Drawing.Imaging.Encoder;
 
 namespace StreamDeckFree
 {
@@ -29,17 +28,9 @@ namespace StreamDeckFree
 
     public static class ImageEncoder
     {
-        private const int MaxPayloadBytes = CydDevice.MaxFirmwarePayload - 1;
-
         public static Rgb565Image RenderButtonRgb565(MacroButton button, int width, int height)
         {
             using Bitmap canvas = RenderButtonBitmap(button, width, height);
-            return new Rgb565Image(canvas.Width, canvas.Height, EncodeRgb565BigEndian(canvas));
-        }
-
-        public static Rgb565Image RenderEmptyRgb565(int width, int height)
-        {
-            using Bitmap canvas = RenderEmptyBitmap(width, height);
             return new Rgb565Image(canvas.Width, canvas.Height, EncodeRgb565BigEndian(canvas));
         }
 
@@ -47,25 +38,6 @@ namespace StreamDeckFree
         {
             using Bitmap canvas = RenderErrorBitmap(width, height, text);
             return new Rgb565Image(canvas.Width, canvas.Height, EncodeRgb565BigEndian(canvas));
-        }
-
-        // Kept only for compatibility/diagnostics. Plugin v5 sends RGB565 chunks, not JPEG.
-        public static byte[] RenderButton(MacroButton button, int width, int height)
-        {
-            using Bitmap canvas = RenderButtonBitmap(button, width, height);
-            return EncodeJpeg(canvas);
-        }
-
-        public static byte[] RenderEmpty(int width, int height)
-        {
-            using Bitmap canvas = RenderEmptyBitmap(width, height);
-            return EncodeJpeg(canvas);
-        }
-
-        public static byte[] RenderError(int width, int height, string text)
-        {
-            using Bitmap canvas = RenderErrorBitmap(width, height, text);
-            return EncodeJpeg(canvas);
         }
 
         private static Bitmap RenderButtonBitmap(MacroButton button, int width, int height)
@@ -174,7 +146,6 @@ namespace StreamDeckFree
                 }
                 catch
                 {
-                    // Use raw text if a template fails.
                 }
             }
 
@@ -253,7 +224,6 @@ namespace StreamDeckFree
         {
             string cleaned = new string(base64.Where(c => !char.IsWhiteSpace(c)).ToArray());
 
-            // Some Macro Deck/image sources expose data URLs instead of plain base64.
             int comma = cleaned.IndexOf(',');
             if (comma >= 0 && cleaned.Substring(0, comma).IndexOf("base64", StringComparison.OrdinalIgnoreCase) >= 0)
             {
@@ -294,7 +264,6 @@ namespace StreamDeckFree
             }
             catch
             {
-                // ignored
             }
 
             return FontFamily.GenericSansSerif;
@@ -338,35 +307,6 @@ namespace StreamDeckFree
             {
                 bitmap.UnlockBits(data);
             }
-        }
-
-        private static byte[] EncodeJpeg(Bitmap bitmap)
-        {
-            long[] qualities = { 75, 65, 55, 45, 35, 25 };
-            byte[] result = Array.Empty<byte>();
-
-            foreach (long quality in qualities)
-            {
-                result = EncodeJpeg(bitmap, quality);
-                if (result.Length <= MaxPayloadBytes)
-                {
-                    return result;
-                }
-            }
-
-            return result;
-        }
-
-        private static byte[] EncodeJpeg(Bitmap bitmap, long quality)
-        {
-            using MemoryStream ms = new MemoryStream();
-            ImageCodecInfo codec = ImageCodecInfo.GetImageDecoders()
-                .First(c => c.FormatID == ImageFormat.Jpeg.Guid);
-
-            using EncoderParameters encoderParameters = new EncoderParameters(1);
-            encoderParameters.Param[0] = new EncoderParameter(DrawingEncoder.Quality, quality);
-            bitmap.Save(ms, codec, encoderParameters);
-            return ms.ToArray();
         }
     }
 }
