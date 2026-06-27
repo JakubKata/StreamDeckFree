@@ -337,20 +337,6 @@ Contributions are welcome.
 
 ---
 
-## Disclaimer
-
-This is an unofficial community project.
-
-StreamDeckFree is not affiliated with:
-
-- Macro Deck,
-- Elgato,
-- Espressif,
-- any hardware manufacturer.
-
-Use it at your own risk.
-
----
 
 ## License
 
