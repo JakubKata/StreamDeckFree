@@ -21,21 +21,23 @@ namespace StreamDeckFree
         private const int GridMarginY = 2;
         private const int GridGapX = 3;
         private const int GridGapY = 3;
-        private const int MaxColumns = 8;
-        private const int MaxRows = 6;
-        private const int MaxButtons = 64;
+
+        // CYD has a small 320x240 LCD. A fixed 3x2 grid is much faster and clearer than mirroring 5x3.
+        private const int DeviceColumns = 3;
+        private const int DeviceRows = 2;
         private const int LongPressMs = 750;
 
         private readonly object _sync = new object();
+        private readonly SemaphoreSlim _sendSemaphore = new SemaphoreSlim(1, 1);
         private readonly Dictionary<int, MacroButton> _buttonsByDeviceId = new Dictionary<int, MacroButton>();
         private readonly HashSet<string> _subscribedButtonGuids = new HashSet<string>();
         private readonly Dictionary<int, PressInfo> _pressedButtons = new Dictionary<int, PressInfo>();
+        private readonly Dictionary<int, string> _sentFrameHashes = new Dictionary<int, string>();
+        private readonly Dictionary<string, CancellationTokenSource> _buttonRefreshDebounce = new Dictionary<string, CancellationTokenSource>();
 
         private CydDevice _device;
         private MacroDeckProfile _profile;
         private MacroFolder _currentFolder;
-        private int _columns = 5;
-        private int _rows = 3;
         private CancellationTokenSource _refreshDebounce;
 
         public override bool CanConfigure => true;
@@ -44,7 +46,7 @@ namespace StreamDeckFree
         {
             try
             {
-                MacroDeckLogger.Info(this, "Starting Stream Deck Free CYD mirror...");
+                MacroDeckLogger.Info(this, "Starting Stream Deck Free CYD mirror v5...");
 
                 _device = new CydDevice(this);
                 _device.ButtonEvent += HandleDeviceButtonEvent;
@@ -63,7 +65,6 @@ namespace StreamDeckFree
                 }
 
                 ProfileManager.ProfilesSaved += HandleProfilesSaved;
-
                 ScheduleFullRefresh(700);
             }
             catch (Exception ex)
@@ -89,7 +90,8 @@ namespace StreamDeckFree
         {
             try
             {
-                _refreshDebounce?.Cancel();
+                CancellationTokenSource old = _refreshDebounce;
+                old?.Cancel();
                 _refreshDebounce = new CancellationTokenSource();
                 CancellationToken token = _refreshDebounce.Token;
 
@@ -105,7 +107,7 @@ namespace StreamDeckFree
                     }
                     catch (TaskCanceledException)
                     {
-                        // ignored
+                        // Debounced by a newer refresh request.
                     }
                     catch (Exception ex)
                     {
@@ -126,75 +128,85 @@ namespace StreamDeckFree
                 return;
             }
 
-            MacroDeckProfile profile = ProfileManager.CurrentProfile ?? ProfileManager.Profiles.FirstOrDefault();
-            if (profile == null)
+            await _sendSemaphore.WaitAsync().ConfigureAwait(false);
+            try
             {
-                MacroDeckLogger.Warning(this, "No Macro Deck profile found");
-                return;
-            }
-
-            MacroFolder folder;
-            lock (_sync)
-            {
-                _profile = profile;
-                folder = ResolveCurrentFolder(profile);
-                _currentFolder = folder;
-                ResolveGrid(profile);
-            }
-
-            if (folder == null)
-            {
-                MacroDeckLogger.Warning(this, $"Profile '{profile.DisplayName}' has no folder to mirror");
-                return;
-            }
-
-            MacroDeckLogger.Info(this, $"Mirroring profile '{profile.DisplayName}', folder '{folder.DisplayName}', grid {_columns}x{_rows}, transport RAW RGB565");
-
-            bool gridOk = await _device.SetGridAsync((byte)_columns, (byte)_rows).ConfigureAwait(false);
-            if (!gridOk)
-            {
-                MacroDeckLogger.Warning(this, "ESP32 did not accept grid command; profile refresh aborted");
-                return;
-            }
-
-            Dictionary<int, MacroButton> newMap = new Dictionary<int, MacroButton>();
-            int buttonWidth = GetButtonWidth(_columns);
-            int buttonHeight = GetButtonHeight(_rows);
-
-            for (int row = 0; row < _rows; row++)
-            {
-                for (int col = 0; col < _columns; col++)
+                MacroDeckProfile profile = ProfileManager.CurrentProfile ?? ProfileManager.Profiles.FirstOrDefault();
+                if (profile == null)
                 {
-                    int deviceId = row * _columns + col;
-                    MacroButton button = ProfileManager.FindActionButton(folder, row, col);
-                    Rgb565Image frame;
+                    MacroDeckLogger.Warning(this, "No Macro Deck profile found");
+                    return;
+                }
 
-                    if (button != null)
+                MacroFolder folder;
+                lock (_sync)
+                {
+                    _profile = profile;
+                    folder = ResolveCurrentFolder(profile);
+                    _currentFolder = folder;
+                }
+
+                if (folder == null)
+                {
+                    MacroDeckLogger.Warning(this, $"Profile '{profile.DisplayName}' has no folder to mirror");
+                    return;
+                }
+
+                MacroDeckLogger.Info(this, $"Mirroring profile '{profile.DisplayName}', folder '{folder.DisplayName}', fixed grid {DeviceColumns}x{DeviceRows}, transport RAW RGB565 at {CydDevice.BaudRate} baud");
+
+                bool gridOk = await _device.SetGridAsync((byte)DeviceColumns, (byte)DeviceRows).ConfigureAwait(false);
+                if (!gridOk)
+                {
+                    MacroDeckLogger.Warning(this, "ESP32 did not accept grid command; profile refresh aborted");
+                    return;
+                }
+
+                lock (_sync)
+                {
+                    // SET_GRID clears the LCD, so all visible frames must be resent.
+                    _sentFrameHashes.Clear();
+                }
+
+                Dictionary<int, MacroButton> newMap = new Dictionary<int, MacroButton>();
+                int buttonWidth = GetButtonWidth();
+                int buttonHeight = GetButtonHeight();
+
+                for (int row = 0; row < DeviceRows; row++)
+                {
+                    for (int col = 0; col < DeviceColumns; col++)
                     {
+                        int deviceId = row * DeviceColumns + col;
+                        MacroButton button = ProfileManager.FindActionButton(folder, row, col);
+
+                        if (button == null)
+                        {
+                            // SET_GRID already drew the empty grey tile. Do not waste UART bandwidth.
+                            continue;
+                        }
+
                         newMap[deviceId] = button;
                         SubscribeToButton(button);
-                        frame = ImageEncoder.RenderButtonRgb565(button, buttonWidth, buttonHeight);
-                    }
-                    else
-                    {
-                        frame = ImageEncoder.RenderEmptyRgb565(buttonWidth, buttonHeight);
-                    }
 
-                    bool ok = await _device.SendRgb565ImageAsync((byte)deviceId, frame.Width, frame.Height, frame.Bytes).ConfigureAwait(false);
-                    if (!ok)
+                        bool ok = await SendButtonVisualAsync(deviceId, button, buttonWidth, buttonHeight).ConfigureAwait(false);
+                        if (!ok)
+                        {
+                            MacroDeckLogger.Warning(this, $"Failed to send RAW RGB565 button {deviceId} ({row},{col}) to ESP32");
+                        }
+                    }
+                }
+
+                lock (_sync)
+                {
+                    _buttonsByDeviceId.Clear();
+                    foreach (var pair in newMap)
                     {
-                        MacroDeckLogger.Warning(this, $"Failed to send RAW RGB565 button {deviceId} ({row},{col}) to ESP32");
+                        _buttonsByDeviceId[pair.Key] = pair.Value;
                     }
                 }
             }
-
-            lock (_sync)
+            finally
             {
-                _buttonsByDeviceId.Clear();
-                foreach (var pair in newMap)
-                {
-                    _buttonsByDeviceId[pair.Key] = pair.Value;
-                }
+                _sendSemaphore.Release();
             }
         }
 
@@ -211,23 +223,6 @@ namespace StreamDeckFree
             }
 
             return profile.Folders?.FirstOrDefault(f => f.IsRootFolder) ?? profile.Folders?.FirstOrDefault();
-        }
-
-        private void ResolveGrid(MacroDeckProfile profile)
-        {
-            int columns = profile.Columns <= 0 ? 5 : profile.Columns;
-            int rows = profile.Rows <= 0 ? 3 : profile.Rows;
-
-            columns = Math.Max(1, Math.Min(MaxColumns, columns));
-            rows = Math.Max(1, Math.Min(MaxRows, rows));
-
-            while (columns * rows > MaxButtons && rows > 1)
-            {
-                rows--;
-            }
-
-            _columns = columns;
-            _rows = rows;
         }
 
         private void SubscribeToButton(MacroButton button)
@@ -265,7 +260,7 @@ namespace StreamDeckFree
         {
             if (sender is MacroButton button)
             {
-                ScheduleSingleButtonRefresh(button);
+                ScheduleSingleButtonRefresh(button, 120);
             }
             else
             {
@@ -275,31 +270,63 @@ namespace StreamDeckFree
 
         private void HandleAnyLabelChanged(object sender, EventArgs e)
         {
+            // Label event sender does not reliably identify the owning ActionButton in all Macro Deck versions.
             ScheduleFullRefresh(150);
         }
 
-        private void ScheduleSingleButtonRefresh(MacroButton button)
+        private void ScheduleSingleButtonRefresh(MacroButton button, int delayMs = 250)
         {
-            if (button == null)
+            if (button == null || string.IsNullOrWhiteSpace(button.Guid))
             {
                 return;
+            }
+
+            CancellationTokenSource old = null;
+            CancellationTokenSource cts = new CancellationTokenSource();
+            string key = button.Guid;
+
+            lock (_sync)
+            {
+                if (_buttonRefreshDebounce.TryGetValue(key, out old))
+                {
+                    old.Cancel();
+                    _buttonRefreshDebounce.Remove(key);
+                }
+
+                _buttonRefreshDebounce[key] = cts;
             }
 
             Task.Run(async () =>
             {
                 try
                 {
-                    await Task.Delay(80).ConfigureAwait(false);
-                    await RefreshSingleButtonAsync(button).ConfigureAwait(false);
+                    await Task.Delay(delayMs, cts.Token).ConfigureAwait(false);
+                    await RefreshSingleButtonAsync(button, cts.Token).ConfigureAwait(false);
+                }
+                catch (TaskCanceledException)
+                {
+                    // Debounced by a newer refresh request.
                 }
                 catch (Exception ex)
                 {
                     MacroDeckLogger.Warning(this, $"Single button refresh failed: {ex.Message}");
                 }
+                finally
+                {
+                    lock (_sync)
+                    {
+                        if (_buttonRefreshDebounce.TryGetValue(key, out CancellationTokenSource current) && ReferenceEquals(current, cts))
+                        {
+                            _buttonRefreshDebounce.Remove(key);
+                        }
+                    }
+
+                    cts.Dispose();
+                }
             });
         }
 
-        private async Task RefreshSingleButtonAsync(MacroButton button)
+        private async Task RefreshSingleButtonAsync(MacroButton button, CancellationToken token)
         {
             if (_device == null || !_device.IsConnected || button == null)
             {
@@ -307,13 +334,8 @@ namespace StreamDeckFree
             }
 
             int deviceId = -1;
-            int columns;
-            int rows;
-
             lock (_sync)
             {
-                columns = _columns;
-                rows = _rows;
                 foreach (var pair in _buttonsByDeviceId)
                 {
                     if (pair.Value.Guid == button.Guid)
@@ -329,8 +351,91 @@ namespace StreamDeckFree
                 return;
             }
 
-            Rgb565Image frame = ImageEncoder.RenderButtonRgb565(button, GetButtonWidth(columns), GetButtonHeight(rows));
-            await _device.SendRgb565ImageAsync((byte)deviceId, frame.Width, frame.Height, frame.Bytes).ConfigureAwait(false);
+            await _sendSemaphore.WaitAsync(token).ConfigureAwait(false);
+            try
+            {
+                token.ThrowIfCancellationRequested();
+                await SendButtonVisualAsync(deviceId, button, GetButtonWidth(), GetButtonHeight()).ConfigureAwait(false);
+            }
+            finally
+            {
+                _sendSemaphore.Release();
+            }
+        }
+
+        private async Task<bool> SendButtonVisualAsync(int deviceId, MacroButton button, int width, int height)
+        {
+            if (button == null)
+            {
+                return true;
+            }
+
+            Rgb565Image frame;
+            try
+            {
+                frame = ImageEncoder.RenderButtonRgb565(button, width, height);
+            }
+            catch (Exception ex)
+            {
+                MacroDeckLogger.Warning(this, $"Render failed for button {deviceId}: {ex.Message}");
+                frame = ImageEncoder.RenderErrorRgb565(width, height, "ERR");
+            }
+
+            string hash = ComputeFrameHash("raw", frame.Width, frame.Height, frame.Bytes);
+            if (IsFrameAlreadySent(deviceId, hash))
+            {
+                return true;
+            }
+
+            bool ok = await _device.SendRgb565ImageAsync((byte)deviceId, frame.Width, frame.Height, frame.Bytes).ConfigureAwait(false);
+            if (ok)
+            {
+                MarkFrameSent(deviceId, hash);
+            }
+
+            return ok;
+        }
+
+        private bool IsFrameAlreadySent(int deviceId, string hash)
+        {
+            lock (_sync)
+            {
+                return _sentFrameHashes.TryGetValue(deviceId, out string oldHash) && oldHash == hash;
+            }
+        }
+
+        private void MarkFrameSent(int deviceId, string hash)
+        {
+            lock (_sync)
+            {
+                _sentFrameHashes[deviceId] = hash;
+            }
+        }
+
+        private static string ComputeFrameHash(string prefix, int width, int height, byte[] bytes)
+        {
+            unchecked
+            {
+                const ulong offset = 14695981039346656037UL;
+                const ulong prime = 1099511628211UL;
+                ulong hash = offset;
+
+                hash ^= (uint)width;
+                hash *= prime;
+                hash ^= (uint)height;
+                hash *= prime;
+
+                if (bytes != null)
+                {
+                    for (int i = 0; i < bytes.Length; i++)
+                    {
+                        hash ^= bytes[i];
+                        hash *= prime;
+                    }
+                }
+
+                return prefix + ":" + width + "x" + height + ":" + hash.ToString("X16");
+            }
         }
 
         private void HandleDeviceButtonEvent(object sender, CydButtonEventArgs e)
@@ -377,6 +482,7 @@ namespace StreamDeckFree
                 {
                     oldPress.Cancellation.Cancel();
                 }
+
                 _pressedButtons[deviceId] = pressInfo;
             }
 
@@ -384,10 +490,6 @@ namespace StreamDeckFree
             if (folderChanged)
             {
                 ScheduleFullRefresh(50);
-            }
-            else
-            {
-                ScheduleSingleButtonRefresh(button);
             }
 
             Task.Run(async () =>
@@ -413,15 +515,11 @@ namespace StreamDeckFree
                         {
                             ScheduleFullRefresh(50);
                         }
-                        else
-                        {
-                            ScheduleSingleButtonRefresh(button);
-                        }
                     }
                 }
                 catch (TaskCanceledException)
                 {
-                    // normal release before long press threshold
+                    // Normal release before long press threshold.
                 }
                 catch (Exception ex)
                 {
@@ -452,29 +550,24 @@ namespace StreamDeckFree
                 return Task.CompletedTask;
             }
 
+            bool folderChanged;
             if (pressInfo != null && pressInfo.LongPressTriggered)
             {
-                TriggerActionList(button.ActionsLongPressRelease, button, out bool longReleaseFolderChanged);
-                if (longReleaseFolderChanged)
-                {
-                    ScheduleFullRefresh(50);
-                }
-                else
-                {
-                    ScheduleSingleButtonRefresh(button);
-                }
+                TriggerActionList(button.ActionsLongPressRelease, button, out folderChanged);
             }
             else
             {
-                TriggerActionList(button.ActionsRelease, button, out bool releaseFolderChanged);
-                if (releaseFolderChanged)
-                {
-                    ScheduleFullRefresh(50);
-                }
-                else
-                {
-                    ScheduleSingleButtonRefresh(button);
-                }
+                TriggerActionList(button.ActionsRelease, button, out folderChanged);
+            }
+
+            if (folderChanged)
+            {
+                ScheduleFullRefresh(50);
+            }
+            else
+            {
+                // Delayed and hash-cached fallback visual update. This prevents floods during repeated tapping.
+                ScheduleSingleButtonRefresh(button, 300);
             }
 
             return Task.CompletedTask;
@@ -497,8 +590,6 @@ namespace StreamDeckFree
 
                 try
                 {
-                    // Empty clientId is treated by Macro Deck's own folder actions as the software client.
-                    // It also works for normal actions which ignore clientId.
                     action.Trigger(string.Empty, actionButton);
 
                     if (ApplyLocalFolderAction(action))
@@ -571,16 +662,14 @@ namespace StreamDeckFree
             }
         }
 
-        private static int GetButtonWidth(int columns)
+        private static int GetButtonWidth()
         {
-            columns = Math.Max(1, columns);
-            return Math.Max(8, (ScreenWidth - (2 * GridMarginX) - ((columns - 1) * GridGapX)) / columns);
+            return Math.Max(8, (ScreenWidth - (2 * GridMarginX) - ((DeviceColumns - 1) * GridGapX)) / DeviceColumns);
         }
 
-        private static int GetButtonHeight(int rows)
+        private static int GetButtonHeight()
         {
-            rows = Math.Max(1, rows);
-            return Math.Max(8, (ScreenHeight - (2 * GridMarginY) - ((rows - 1) * GridGapY)) / rows);
+            return Math.Max(8, (ScreenHeight - (2 * GridMarginY) - ((DeviceRows - 1) * GridGapY)) / DeviceRows);
         }
 
         private sealed class PressInfo

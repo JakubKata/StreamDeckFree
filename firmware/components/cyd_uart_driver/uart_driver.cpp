@@ -7,16 +7,16 @@
 #include <stdio.h>
 
 #define UART_PORT UART_NUM_0
-#define UART_BAUDRATE 115200
-#define UART_RX_DRIVER_BUFFER 8192
-#define UART_TX_DRIVER_BUFFER 2048
+#define UART_BAUDRATE 921600
+#define UART_RX_DRIVER_BUFFER 16384
+#define UART_TX_DRIVER_BUFFER 4096
 
 static RingBuffer my_buffer;
 
 static void uart_rx_task(void *parameter) {
     (void)parameter;
 
-    uint8_t temp_array[512];
+    uint8_t temp_array[2048];
     uint32_t last_reported_drops = 0;
 
     while (true) {

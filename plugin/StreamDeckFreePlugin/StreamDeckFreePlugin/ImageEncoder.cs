@@ -49,7 +49,7 @@ namespace StreamDeckFree
             return new Rgb565Image(canvas.Width, canvas.Height, EncodeRgb565BigEndian(canvas));
         }
 
-        // Kept only for compatibility/diagnostics. Plugin v4 sends RGB565 chunks, not JPEG.
+        // Kept only for compatibility/diagnostics. Plugin v5 sends RGB565 chunks, not JPEG.
         public static byte[] RenderButton(MacroButton button, int width, int height)
         {
             using Bitmap canvas = RenderButtonBitmap(button, width, height);
@@ -79,12 +79,13 @@ namespace StreamDeckFree
             DrawingColor backColor = state ? button.BackColorOn : button.BackColorOff;
             string iconBase64 = state ? button.IconOn : button.IconOff;
             ButtonLabel label = state ? button.LabelOn : button.LabelOff;
+            bool hasLabel = label != null && (!string.IsNullOrWhiteSpace(label.LabelText) || !string.IsNullOrWhiteSpace(label.LabelBase64));
 
             Bitmap canvas = CreateCanvas(width, height, backColor);
             using Graphics g = Graphics.FromImage(canvas);
             ConfigureGraphics(g);
 
-            DrawIcon(g, iconBase64, width, height);
+            DrawIcon(g, iconBase64, width, height, hasLabel);
             DrawLabel(g, label, width, height);
             DrawBorder(g, width, height, DrawingColor.FromArgb(70, 70, 70));
 
@@ -129,13 +130,13 @@ namespace StreamDeckFree
         private static void ConfigureGraphics(Graphics g)
         {
             g.CompositingQuality = CompositingQuality.HighQuality;
-            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            g.InterpolationMode = InterpolationMode.HighQualityBilinear;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.PixelOffsetMode = PixelOffsetMode.HighQuality;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
         }
 
-        private static void DrawIcon(Graphics g, string base64, int width, int height)
+        private static void DrawIcon(Graphics g, string base64, int width, int height, bool reserveLabelSpace)
         {
             if (string.IsNullOrWhiteSpace(base64))
             {
@@ -148,14 +149,10 @@ namespace StreamDeckFree
                 return;
             }
 
-            int padding = Math.Max(2, Math.Min(width, height) / 12);
+            int padding = Math.Max(3, Math.Min(width, height) / 12);
+            int labelReserve = reserveLabelSpace ? Math.Max(18, height / 4) : 0;
             int maxW = Math.Max(1, width - padding * 2);
-            int maxH = Math.Max(1, height - padding * 2);
-
-            if (height >= 60)
-            {
-                maxH = Math.Max(1, height - padding * 3);
-            }
+            int maxH = Math.Max(1, height - padding * 2 - labelReserve);
 
             Rectangle dest = FitInside(icon.Width, icon.Height, new Rectangle(padding, padding, maxW, maxH));
             g.DrawImage(icon, dest);
@@ -255,6 +252,14 @@ namespace StreamDeckFree
         private static string NormalizeBase64(string base64)
         {
             string cleaned = new string(base64.Where(c => !char.IsWhiteSpace(c)).ToArray());
+
+            // Some Macro Deck/image sources expose data URLs instead of plain base64.
+            int comma = cleaned.IndexOf(',');
+            if (comma >= 0 && cleaned.Substring(0, comma).IndexOf("base64", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                cleaned = cleaned.Substring(comma + 1);
+            }
+
             int remainder = cleaned.Length % 4;
             if (remainder != 0)
             {

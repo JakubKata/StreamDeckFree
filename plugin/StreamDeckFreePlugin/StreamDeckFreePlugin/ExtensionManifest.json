@@ -1,1 +1,10 @@
-{ "type": "Plugin", "name": "Stream Deck Free", "author": "Jakub Kata", "packageId": "JakubKata.StreamDeckFree", "version": "1.0.0", "target-plugin-api-version": 34, "dll": "StreamDeckFreePlugin.dll" }
+{
+  "type": "Plugin",
+  "name": "Stream Deck Free",
+  "author": "Jakub Kata",
+  "packageId": "JakubKata.StreamDeckFree",
+  "version": "0.0.5",
+  "target-plugin-api-version": 34,
+  "dll": "StreamDeckFreePlugin.dll",
+  "description": "Macro Deck profile mirror for ESP32 CYD, fixed 3x2 grid, fast RAW RGB565 transport."
+}

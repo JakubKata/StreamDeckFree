@@ -25,7 +25,7 @@ static uint16_t read_u16_le(const uint8_t* p) {
 }
 
 static void send_ack(uint8_t acked_cmd, uint8_t button_id, uint8_t status) {
-    // status: 0 = OK, 1 = decode/draw error, 2 = invalid payload/button
+    // status: 0 = OK, 1 = draw error, 2 = invalid payload/button
     uint8_t payload[3] = { acked_cmd, button_id, status };
     send_frame(CMD_ACK, payload, sizeof(payload));
 }
@@ -37,27 +37,32 @@ static void send_touch_event(uint8_t button_id, uint8_t event_type) {
 }
 
 extern "C" void app_main(void) {
-    printf("Starting StreamDeckFree CYD firmware v4 RAW RGB565 chunks...\n");
+    printf("Starting StreamDeckFree CYD firmware v5, 921600 baud, fixed 3x2 grid, RAW RGB565 chunks...\n");
 
     init_uart();
 
     static ProtocolParser parser;
     static CydDisplay display;
     static CydTouch touch;
+
     display.init();
     display.fill_screen(CydDisplay::rgb565(0, 0, 0));
     touch.init();
 
     static CydUI ui(display);
-    ui.set_grid(5, 3); // Default; plugin overwrites this with Macro Deck profile size.
+    ui.set_grid(3, 2);
     ui.draw_grid();
 
-    printf("System ready: UART 115200, default grid 5x3, command 32 RAW chunks.\n");
+    printf("System ready: UART 921600, default grid 3x2, command 32 RAW chunks.\n");
 
     uint8_t received_byte;
     uint16_t tx = 0;
     uint16_t ty = 0;
-    int last_pressed_button = -1;
+
+    int stable_button = -1;
+    int candidate_button = -1;
+    TickType_t candidate_since = xTaskGetTickCount();
+    const TickType_t touch_stable_ticks = pdMS_TO_TICKS(35);
 
     while (true) {
         // Drain all available UART bytes. Handling only one byte per tick drops image frames.
@@ -136,12 +141,11 @@ extern "C" void app_main(void) {
                 }
 
                 bool ok = display.draw_rgb565be(bx + off_x, by + off_y, w, h, &payload[9], pixel_bytes);
-                if (ok) {
-                    send_ack(cmd, btn_id, 0);
-                } else {
+                send_ack(cmd, btn_id, ok ? 0 : 1);
+
+                if (!ok) {
                     printf("RAW draw failed: button=%u off=(%u,%u) size=%ux%u bytes=%lu\n",
                            btn_id, off_x, off_y, w, h, (unsigned long)pixel_bytes);
-                    send_ack(cmd, btn_id, 1);
                 }
             } else {
                 printf("Unknown command: %u, len=%u\n", cmd, len);
@@ -151,19 +155,23 @@ extern "C" void app_main(void) {
 
         bool touched = touch.get_coordinates(tx, ty);
         int current_button = touched ? ui.get_button_from_touch(tx, ty) : -1;
+        TickType_t now = xTaskGetTickCount();
 
-        if (current_button != last_pressed_button) {
-            if (last_pressed_button >= 0) {
-                send_touch_event((uint8_t)last_pressed_button, 0);
+        if (current_button != candidate_button) {
+            candidate_button = current_button;
+            candidate_since = now;
+        } else if (current_button != stable_button && (now - candidate_since) >= touch_stable_ticks) {
+            if (stable_button >= 0) {
+                send_touch_event((uint8_t)stable_button, 0);
             }
 
             if (current_button >= 0) {
                 send_touch_event((uint8_t)current_button, 1);
             }
 
-            last_pressed_button = current_button;
+            stable_button = current_button;
         }
 
-        vTaskDelay(pdMS_TO_TICKS(touched ? 20 : 5));
+        vTaskDelay(pdMS_TO_TICKS(touched ? 10 : 5));
     }
 }

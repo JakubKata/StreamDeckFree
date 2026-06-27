@@ -2,8 +2,8 @@
 
 #include <stdint.h>
 
-// v4 sends RAW RGB565 in small chunks. 8192 bytes is enough even for a 1-column grid
-// with 12 display rows per chunk and keeps ESP32 RAM usage low.
+// v5 sends RAW RGB565 in high-speed chunks. 8192 bytes keeps ESP32 RAM usage low
+// while still allowing about 38-39 rows per frame for the fixed 3x2 grid.
 #define PROTOCOL_MAX_PAYLOAD_SIZE 8192
 
 class ProtocolParser {

@@ -24,11 +24,12 @@ namespace StreamDeckFree
 
     public sealed class CydDevice : IDisposable
     {
-        public const int BaudRate = 115200;
-        public const int MaxFirmwarePayload = 24576;
+        public const int BaudRate = 921600;
+        public const int MaxFirmwarePayload = 8192;
 
         private const byte FrameStart = 0x02;
         private const byte CmdAck = 6;
+        private const byte CmdSetColor = 10;
         private const byte CmdTouchEvent = 20;
         private const byte CmdDrawJpeg = 30;
         private const byte CmdSetGrid = 31;
@@ -64,7 +65,7 @@ namespace StreamDeckFree
                 Disconnect();
 
                 _serialPort = new Win32SerialPort();
-                _serialPort.Open(portName, BaudRate, 200, 5000);
+                _serialPort.Open(portName, BaudRate, 80, 5000);
 
                 _isRunning = true;
 
@@ -99,13 +100,19 @@ namespace StreamDeckFree
             }
         }
 
-        public Task<bool> SetGridAsync(byte columns, byte rows, int timeoutMs = 3000)
+        public Task<bool> SetGridAsync(byte columns, byte rows, int timeoutMs = 1500)
         {
             byte[] payload = { columns, rows };
             return Task.Run(() => SendFrameAndWaitForAck(CmdSetGrid, payload, 0xFF, timeoutMs));
         }
 
-        public Task<bool> SendRgb565ImageAsync(byte buttonId, int width, int height, byte[] rgb565Bytes, int timeoutMsPerChunk = 3000)
+        public Task<bool> SetButtonColorAsync(byte buttonId, byte red, byte green, byte blue, int timeoutMs = 800)
+        {
+            byte[] payload = { buttonId, red, green, blue };
+            return Task.Run(() => SendFrameAndWaitForAck(CmdSetColor, payload, buttonId, timeoutMs));
+        }
+
+        public Task<bool> SendRgb565ImageAsync(byte buttonId, int width, int height, byte[] rgb565Bytes, int timeoutMsPerChunk = 1500)
         {
             if (rgb565Bytes == null || rgb565Bytes.Length == 0 || width <= 0 || height <= 0)
             {
@@ -127,10 +134,11 @@ namespace StreamDeckFree
 
         private bool SendRgb565ImageInChunks(byte buttonId, int width, int height, byte[] rgb565Bytes, int timeoutMsPerChunk)
         {
-            // Payload header for firmware command 32 is 9 bytes. 12 rows per frame keeps
-            // each UART frame small enough for stable CH340/ESP32 transfer at 115200 baud.
+            // Payload header for firmware command 32 is 9 bytes. v5 uses the largest safe chunk
+            // allowed by the protocol. With the fixed 3x2 grid, this is usually about
+            // 38-39 display rows per frame, so each tile needs only 3 UART frames.
             int maxRowsByPayload = Math.Max(1, (MaxFirmwarePayload - 9) / Math.Max(1, width * 2));
-            int rowsPerChunk = Math.Max(1, Math.Min(12, maxRowsByPayload));
+            int rowsPerChunk = Math.Max(1, maxRowsByPayload);
 
             for (int y = 0; y < height; y += rowsPerChunk)
             {
@@ -161,7 +169,7 @@ namespace StreamDeckFree
                     return false;
                 }
 
-                Thread.Sleep(4);
+                // The ACK provides flow control, so no extra delay is needed here.
             }
 
             return true;
@@ -174,7 +182,7 @@ namespace StreamDeckFree
             buffer[offset + 1] = (byte)((v >> 8) & 0xFF);
         }
 
-        // Kept only for manual legacy tests. The v4 plugin uses RGB565, not JPEG.
+        // Kept only for manual legacy tests. The v5 plugin uses RGB565, not JPEG.
         public Task<bool> SendJpegAsync(byte buttonId, byte[] jpegBytes, int timeoutMs = 6000)
         {
             if (jpegBytes == null || jpegBytes.Length == 0)
@@ -502,7 +510,7 @@ namespace StreamDeckFree
                 ThrowLastWin32("CreateFile", _portName);
             }
 
-            if (!SetupComm(_handle, 32768, 32768))
+            if (!SetupComm(_handle, 65536, 65536))
             {
                 ThrowLastWin32("SetupComm", _portName);
             }
@@ -528,7 +536,7 @@ namespace StreamDeckFree
 
             COMMTIMEOUTS timeouts = new COMMTIMEOUTS
             {
-                ReadIntervalTimeout = 50,
+                ReadIntervalTimeout = 20,
                 ReadTotalTimeoutMultiplier = 0,
                 ReadTotalTimeoutConstant = (uint)Math.Max(1, readTimeoutMs),
                 WriteTotalTimeoutMultiplier = 0,

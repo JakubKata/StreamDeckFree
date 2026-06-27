@@ -1,7 +1,7 @@
 #include "cyd_ui.hpp"
 
 CydUI::CydUI(CydDisplay& disp_ref)
-    : display(disp_ref), columns(5), rows(3) {
+    : display(disp_ref), columns(3), rows(2) {
 }
 
 void CydUI::set_grid(uint8_t cols, uint8_t rows_count) {
