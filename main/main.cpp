@@ -9,7 +9,7 @@
 
 extern "C" void app_main(void)
 {
-    printf("Starting Stream Deck...\n");
+    printf("Uruchamianie Stream Decka...\n");
 
     init_uart();
     ProtocolParser parser;
@@ -23,7 +23,7 @@ extern "C" void app_main(void)
     CydUI ui(display);
     ui.draw_grid();
 
-    printf("System ready!\n");
+    printf("System gotowy!\n");
 
     uint8_t received_byte;
     uint16_t tx, ty;
@@ -43,9 +43,13 @@ extern "C" void app_main(void)
 
         if (touch.get_coordinates(tx, ty)) {
             int pressed_btn = ui.get_button_from_touch(tx, ty);
-
+            
             if (pressed_btn != -1) {
-                printf("Button clicked: %d\n", pressed_btn);
+                printf("Kliknieto przycisk: %d\n", pressed_btn);
+
+                uint8_t rx_payload[1] = { (uint8_t)pressed_btn };
+
+                send_frame(20, rx_payload, 1);
 
                 vTaskDelay(200 / portTICK_PERIOD_MS);
             }
