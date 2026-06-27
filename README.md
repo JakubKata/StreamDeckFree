@@ -50,40 +50,39 @@ idf.py -p COM4 flash monitor
 2. Build the project (F6 or `Build Solution`).
 3. Copy the generated files from the `bin/Debug/net8.0-windows10.0.22000.0/` folder to your Macro Deck plugins directory:
 
-```powershell
-%appdata%\Macro Deck\plugins\StreamDeckFree
+
+```text
+bin/Debug/net8.0-windows10.0.22000.0/
 ```
+
+to your Macro Deck plugins directory:
+
+```text
+%AppData%\Macro Deck\plugins\StreamDeckFree\
+```
+
+> **Important:** Copy the entire output directory, including all generated `.dll` files and `ExtensionManifest.json`.
 
 ---
 
-## Usage Example
+## Configuration
 
-The `CydDevice` class encapsulates communication with the microcontroller. Below is an example of sending a compressed image and listening for user clicks.
+1. Connect your ESP32 CYD device to your computer.
+2. Launch **Macro Deck**.
+3. Open **Plugins** → **Installed**.
+4. Click the **Configure** (⚙️) button for **Stream Deck Free**.
+5. Select the COM port assigned to your ESP32 (CH340/CP210x) and click **Save**.
+6. Completely restart Macro Deck (including closing it from the system tray) to establish the serial connection.
 
-```csharp
-using StreamDeckFree;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+---
 
-// Initialize connection on a specific COM port
-CydDevice device = new CydDevice(this);
-device.Connect("COM4");
+## Usage
 
-// Listen for hardware screen touches
-device.OnButtonTapped += (sender, btnId) => {
-    MacroDeckLogger.Info(this, $"Button pressed: {btnId}");
-};
+After restarting Macro Deck:
 
-// Generate and send a JPEG image to tile #1
-using (Image<Rgba32> img = new Image<Rgba32>(101, 114))
-{
-    img.Mutate(ctx => ctx.BackgroundColor(Color.DarkBlue));
-    
-    byte[] jpegData = ImageEncoder.GetJpegBytes(img);
-    device.SendJpeg(1, jpegData);
-}
-```
+- The plugin automatically connects to the configured COM port.
+- The ESP32 receives button images from Macro Deck.
+- Touch events on the ESP32 are sent back to Macro Deck and can be used to trigger actions.
 
 ---
 
@@ -107,6 +106,7 @@ STREAMDECKFREE/
 │   └── sdkconfig
 ├── plugin/
 │   └── StreamDeckFreePlugin/
+│       ├── ConfigWindow.cs
 │       ├── CydDevice.cs
 │       ├── ExtensionManifest.json
 │       ├── ImageEncoder.cs
