@@ -20,7 +20,7 @@
 
 #define TOUCH_SWAP_XY  1
 #define TOUCH_INVERT_X 0
-#define TOUCH_INVERT_Y 1
+#define TOUCH_INVERT_Y 0
 
 #define TOUCH_DEBUG 0
 
