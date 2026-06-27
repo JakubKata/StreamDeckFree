@@ -1,0 +1,9 @@
+{
+  "type": "Plugin",
+  "name": "Stream Deck Free",
+  "author": "Jakub Kata",
+  "packageId": "JakubKata.StreamDeckFree",
+  "version": "1.0.0",
+  "target-plugin-api-version": 34,
+  "dll": "StreamDeckFreePlugin.dll"
+}
