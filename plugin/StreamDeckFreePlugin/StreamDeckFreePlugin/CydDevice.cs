@@ -29,7 +29,6 @@ namespace StreamDeckFree
 
         private const byte FrameStart = 0x02;
         private const byte CmdAck = 6;
-        private const byte CmdSetColor = 10;
         private const byte CmdTouchEvent = 20;
         private const byte CmdSetGrid = 31;
         private const byte CmdDrawRgb565Raw = 32;
@@ -40,7 +39,6 @@ namespace StreamDeckFree
         private readonly AutoResetEvent _ackWaiter = new AutoResetEvent(false);
 
         private Win32SerialPort _serialPort;
-        private Thread _readerThread;
         private volatile bool _isRunning;
 
         private bool _waitingForAck;
@@ -68,14 +66,14 @@ namespace StreamDeckFree
 
                 _isRunning = true;
 
-                _readerThread = new Thread(ListenForFrames)
+                Thread readerThread = new Thread(ListenForFrames)
                 {
                     IsBackground = true,
                     Name = "StreamDeckFree CYD UART reader"
                 };
-                _readerThread.Start();
+                readerThread.Start();
 
-                MacroDeckLogger.Info(_pluginInstance, $"CYD connected on {portName} at {BaudRate} baud using Win32 serial API");
+                MacroDeckLogger.Info(_pluginInstance, $"CYD connected on {portName} at {BaudRate} baud");
                 return true;
             }
             catch (Exception ex)
@@ -102,12 +100,6 @@ namespace StreamDeckFree
         {
             byte[] payload = { columns, rows };
             return Task.Run(() => SendFrameAndWaitForAck(CmdSetGrid, payload, 0xFF, timeoutMs));
-        }
-
-        public Task<bool> SetButtonColorAsync(byte buttonId, byte red, byte green, byte blue, int timeoutMs = 800)
-        {
-            byte[] payload = { buttonId, red, green, blue };
-            return Task.Run(() => SendFrameAndWaitForAck(CmdSetColor, payload, buttonId, timeoutMs));
         }
 
         public Task<bool> SendRgb565ImageAsync(byte buttonId, int width, int height, byte[] rgb565Bytes, int timeoutMsPerChunk = 1500)
@@ -427,9 +419,7 @@ namespace StreamDeckFree
         private const uint PurgeTxClear = 0x0004;
         private const uint PurgeRxClear = 0x0008;
 
-        private const int SetRts = 3;
         private const int ClrRts = 4;
-        private const int SetDtr = 5;
         private const int ClrDtr = 6;
 
         private const byte NoParity = 0;

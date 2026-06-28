@@ -45,7 +45,10 @@ namespace StreamDeckFree
         {
             try
             {
-                MacroDeckLogger.Info(this, "Starting Stream Deck Free CYD mirror v5...");
+                MacroDeckLogger.Info(this, "Starting Stream Deck Free CYD mirror v6-diag...");
+
+                // Initialize image encoder diagnostics — set true to save debug bitmaps to disk
+                ImageEncoder.InitDiagnostics(this, saveDebugBitmaps: true);
 
                 _device = new CydDevice(this);
                 _device.ButtonEvent += HandleDeviceButtonEvent;
@@ -364,6 +367,8 @@ namespace StreamDeckFree
                 return true;
             }
 
+            MacroDeckLogger.Info(this, $"[SendVisual] Rendering button deviceId={deviceId}, guid={button.Guid}, state={button.State}, requestedSize={width}x{height}");
+
             Rgb565Image frame;
             try
             {
@@ -371,17 +376,23 @@ namespace StreamDeckFree
             }
             catch (Exception ex)
             {
-                MacroDeckLogger.Warning(this, $"Render failed for button {deviceId}: {ex.Message}");
+                MacroDeckLogger.Warning(this, $"Render failed for button {deviceId}: {ex.Message}\n{ex.StackTrace}");
                 frame = ImageEncoder.RenderErrorRgb565(width, height, "ERR");
             }
+
+            MacroDeckLogger.Info(this, $"[SendVisual] Rendered frame: deviceId={deviceId}, frameSize={frame.Width}x{frame.Height}, bytesLength={frame.Bytes.Length}, expectedBytes={frame.Width * frame.Height * 2}");
 
             string hash = ComputeFrameHash("raw", frame.Width, frame.Height, frame.Bytes);
             if (IsFrameAlreadySent(deviceId, hash))
             {
+                MacroDeckLogger.Info(this, $"[SendVisual] Frame hash unchanged for deviceId={deviceId}, skipping send");
                 return true;
             }
 
+            MacroDeckLogger.Info(this, $"[SendVisual] Sending RGB565 to ESP32: deviceId={deviceId}, {frame.Width}x{frame.Height}, {frame.Bytes.Length} bytes");
             bool ok = await _device.SendRgb565ImageAsync((byte)deviceId, frame.Width, frame.Height, frame.Bytes).ConfigureAwait(false);
+            MacroDeckLogger.Info(this, $"[SendVisual] Send result: deviceId={deviceId}, ok={ok}");
+
             if (ok)
             {
                 MarkFrameSent(deviceId, hash);

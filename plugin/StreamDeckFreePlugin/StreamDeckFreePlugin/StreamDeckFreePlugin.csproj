@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <PackageReference Include="SuchByte.MacroDeck" Version="2.14.1" />
+    <PackageReference Include="Svg" Version="3.4.7" />
   </ItemGroup>
 
   <ItemGroup>

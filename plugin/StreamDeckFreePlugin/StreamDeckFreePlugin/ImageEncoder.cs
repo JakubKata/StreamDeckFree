@@ -4,11 +4,15 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
+using System.Text;
+using Svg;
 using SuchByte.MacroDeck.ActionButton;
 using SuchByte.MacroDeck.CottleIntegration;
+using SuchByte.MacroDeck.Icons;
 using MacroButton = SuchByte.MacroDeck.ActionButton.ActionButton;
 using DrawingColor = System.Drawing.Color;
 using DrawingImage = System.Drawing.Image;
+using MacroDeckIcon = SuchByte.MacroDeck.Icons.Icon;
 
 namespace StreamDeckFree
 {
@@ -49,7 +53,7 @@ namespace StreamDeckFree
 
             bool state = button.State;
             DrawingColor backColor = state ? button.BackColorOn : button.BackColorOff;
-            string iconBase64 = state ? button.IconOn : button.IconOff;
+            string iconString = state ? button.IconOn : button.IconOff;
             ButtonLabel label = state ? button.LabelOn : button.LabelOff;
             bool hasLabel = label != null && (!string.IsNullOrWhiteSpace(label.LabelText) || !string.IsNullOrWhiteSpace(label.LabelBase64));
 
@@ -57,7 +61,7 @@ namespace StreamDeckFree
             using Graphics g = Graphics.FromImage(canvas);
             ConfigureGraphics(g);
 
-            DrawIcon(g, iconBase64, width, height, hasLabel);
+            DrawIcon(g, iconString, width, height, hasLabel);
             DrawLabel(g, label, width, height);
             DrawBorder(g, width, height, DrawingColor.FromArgb(70, 70, 70));
 
@@ -108,26 +112,70 @@ namespace StreamDeckFree
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
         }
 
-        private static void DrawIcon(Graphics g, string base64, int width, int height, bool reserveLabelSpace)
+        private static void DrawIcon(Graphics g, string iconString, int width, int height, bool reserveLabelSpace)
         {
-            if (string.IsNullOrWhiteSpace(base64))
+            if (string.IsNullOrWhiteSpace(iconString))
             {
                 return;
             }
 
-            using Bitmap icon = TryLoadBitmap(base64);
+            Bitmap icon = TryLoadFromIconPack(iconString);
+
+            if (icon == null)
+            {
+                icon = TryLoadBitmap(iconString);
+            }
+
             if (icon == null)
             {
                 return;
             }
 
-            int padding = Math.Max(3, Math.Min(width, height) / 12);
-            int labelReserve = reserveLabelSpace ? Math.Max(18, height / 4) : 0;
-            int maxW = Math.Max(1, width - padding * 2);
-            int maxH = Math.Max(1, height - padding * 2 - labelReserve);
+            using (icon)
+            {
+                int padding = Math.Max(3, Math.Min(width, height) / 12);
+                int labelReserve = reserveLabelSpace ? Math.Max(18, height / 4) : 0;
+                int maxW = Math.Max(1, width - padding * 2);
+                int maxH = Math.Max(1, height - padding * 2 - labelReserve);
 
-            Rectangle dest = FitInside(icon.Width, icon.Height, new Rectangle(padding, padding, maxW, maxH));
-            g.DrawImage(icon, dest);
+                Rectangle dest = FitInside(icon.Width, icon.Height, new Rectangle(padding, padding, maxW, maxH));
+                g.DrawImage(icon, dest);
+            }
+        }
+
+        private static Bitmap TryLoadFromIconPack(string iconString)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(iconString) || iconString.Length > 200)
+                {
+                    return null;
+                }
+
+                MacroDeckIcon mdIcon = IconManager.GetIconByString(iconString);
+                if (mdIcon == null)
+                {
+                    return null;
+                }
+
+                DrawingImage iconImage = mdIcon.IconImage;
+                if (iconImage != null)
+                {
+                    return new Bitmap(iconImage);
+                }
+
+                string iconBase64 = mdIcon.IconBase64;
+                if (!string.IsNullOrWhiteSpace(iconBase64))
+                {
+                    return TryLoadBitmap(iconBase64);
+                }
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static void DrawLabel(Graphics g, ButtonLabel label, int width, int height)
@@ -209,10 +257,102 @@ namespace StreamDeckFree
             try
             {
                 string cleaned = NormalizeBase64(base64);
-                byte[] bytes = Convert.FromBase64String(cleaned);
+                if (string.IsNullOrEmpty(cleaned))
+                {
+                    return null;
+                }
+
+                byte[] bytes;
+                try
+                {
+                    bytes = Convert.FromBase64String(cleaned);
+                }
+                catch (FormatException)
+                {
+                    return null;
+                }
+
+                Bitmap svgResult = TryLoadSvgBitmap(bytes);
+                if (svgResult != null)
+                {
+                    return svgResult;
+                }
+
                 using MemoryStream ms = new MemoryStream(bytes);
                 using DrawingImage loaded = DrawingImage.FromStream(ms, true, true);
                 return new Bitmap(loaded);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static Bitmap TryLoadSvgBitmap(byte[] bytes)
+        {
+            try
+            {
+                if (bytes == null || bytes.Length < 4)
+                {
+                    return null;
+                }
+
+                bool looksLikeSvg = false;
+                int start = 0;
+
+                if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+                {
+                    start = 3;
+                }
+
+                while (start < bytes.Length && (bytes[start] == ' ' || bytes[start] == '\t' || bytes[start] == '\r' || bytes[start] == '\n'))
+                {
+                    start++;
+                }
+
+                if (start < bytes.Length && bytes[start] == '<')
+                {
+                    string prefix = Encoding.UTF8.GetString(bytes, start, Math.Min(256, bytes.Length - start));
+                    if (prefix.Contains("<svg", StringComparison.OrdinalIgnoreCase) ||
+                        prefix.Contains("<?xml", StringComparison.OrdinalIgnoreCase))
+                    {
+                        looksLikeSvg = true;
+                    }
+                }
+
+                if (!looksLikeSvg)
+                {
+                    return null;
+                }
+
+                using MemoryStream svgStream = new MemoryStream(bytes);
+                SvgDocument svgDoc = SvgDocument.Open<SvgDocument>(svgStream);
+                if (svgDoc == null)
+                {
+                    return null;
+                }
+
+                int width = (int)svgDoc.Width.Value;
+                int height = (int)svgDoc.Height.Value;
+
+                if (width <= 0 || height <= 0)
+                {
+                    if (svgDoc.ViewBox.Width > 0 && svgDoc.ViewBox.Height > 0)
+                    {
+                        width = (int)svgDoc.ViewBox.Width;
+                        height = (int)svgDoc.ViewBox.Height;
+                    }
+                    else
+                    {
+                        width = 256;
+                        height = 256;
+                    }
+                }
+
+                svgDoc.Width = new SvgUnit(SvgUnitType.Pixel, width);
+                svgDoc.Height = new SvgUnit(SvgUnitType.Pixel, height);
+
+                return svgDoc.Draw(width, height);
             }
             catch
             {
