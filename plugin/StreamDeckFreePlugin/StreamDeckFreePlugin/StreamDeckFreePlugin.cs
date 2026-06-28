@@ -47,9 +47,6 @@ namespace StreamDeckFree
             {
                 MacroDeckLogger.Info(this, "Starting Stream Deck Free CYD mirror v6-diag...");
 
-                // Initialize image encoder diagnostics — set true to save debug bitmaps to disk
-                ImageEncoder.InitDiagnostics(this, saveDebugBitmaps: true);
-
                 _device = new CydDevice(this);
                 _device.ButtonEvent += HandleDeviceButtonEvent;
 

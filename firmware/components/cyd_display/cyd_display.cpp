@@ -97,11 +97,11 @@ void CydDisplay::fill_screen(uint16_t color) {
         line_buffer[i * 2 + 1] = color & 0xFF;
     }
 
+    spi_transaction_t t = {};
+    t.length = SCREEN_WIDTH * 2 * 8;
+    t.tx_buffer = line_buffer;
+
     for (int y = 0; y < SCREEN_HEIGHT; y++) {
-        spi_transaction_t t;
-        memset(&t, 0, sizeof(t));
-        t.length = SCREEN_WIDTH * 2 * 8;
-        t.tx_buffer = line_buffer;
         spi_device_polling_transmit(spi_handle, &t);
     }
 }
@@ -120,11 +120,11 @@ void CydDisplay::draw_filled_rectangle(uint16_t x, uint16_t y, uint16_t w, uint1
         line_buffer[i * 2 + 1] = color & 0xFF;
     }
 
+    spi_transaction_t t = {};
+    t.length = w * 2 * 8;
+    t.tx_buffer = line_buffer;
+
     for (int i = 0; i < h; i++) {
-        spi_transaction_t t;
-        memset(&t, 0, sizeof(t));
-        t.length = w * 2 * 8;
-        t.tx_buffer = line_buffer;
         spi_device_polling_transmit(spi_handle, &t);
     }
 }
@@ -147,16 +147,15 @@ bool CydDisplay::draw_rgb565be(uint16_t x, uint16_t y, uint16_t w, uint16_t h, c
 
     uint8_t line_buffer[SCREEN_WIDTH * 2];
 
+    spi_transaction_t t = {};
+    t.length = draw_w * 2 * 8;
+    t.tx_buffer = line_buffer;
+
     for (uint16_t row = 0; row < draw_h; row++) {
         const uint8_t* line = data + ((size_t)row * (size_t)original_w * 2u);
         memcpy(line_buffer, line, draw_w * 2u);
 
-        spi_transaction_t t;
-        memset(&t, 0, sizeof(t));
-        t.length = draw_w * 2 * 8;
-        t.tx_buffer = line_buffer;
-        esp_err_t err = spi_device_polling_transmit(spi_handle, &t);
-        if (err != ESP_OK) {
+        if (spi_device_polling_transmit(spi_handle, &t) != ESP_OK) {
             return false;
         }
     }
